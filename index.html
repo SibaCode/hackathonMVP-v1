@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>DriveQ — Smart Lesson Queue (MVP)</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --primary:#4F46E5; --accent:#F97316; --bg:#F9FAFB; --card:#FFFFFF;
+  --text:#111827; --muted:#6B7280; --success:#10B981; --warning:#F59E0B; --danger:#EF4444;
+}
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Poppins',sans-serif}
+body{background:var(--bg);color:var(--text);padding:24px}
+.container{max-width:1100px;margin:0 auto}
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.title{font-size:22px;font-weight:700}
+.tabs{display:flex;gap:10px}
+.tab{padding:10px 16px;border-radius:10px;background:transparent;border:1px solid transparent;cursor:pointer}
+.tab.active{background:linear-gradient(90deg,var(--primary),var(--accent));color:#fff;box-shadow:0 6px 20px rgba(79,70,229,0.12)}
+.grid{display:grid;gap:16px}
+.grid-3{grid-template-columns:repeat(3,1fr)}
+.card{background:var(--card);border-radius:12px;padding:16px;box-shadow:0 6px 18px rgba(16,24,40,0.05)}
+.form-row{display:flex;gap:12px}
+.input, select, button{padding:10px;border-radius:8px;border:1px solid #e6e6e9;font-size:14px}
+.input{flex:1}
+.btn{border:none;background:var(--primary);color:#fff;padding:10px 14px;border-radius:8px;cursor:pointer}
+.btn.secondary{background:#fff;color:var(--primary);border:1px solid #e6e6e9}
+.slot{padding:12px;border-radius:10px;background:#fbfbff;border:1px solid #f0f0ff;display:flex;justify-content:space-between;align-items:center}
+.slot.available{border-left:4px solid var(--success)}
+.slot.full{border-left:4px solid var(--danger);opacity:0.85}
+.slot .meta{color:var(--muted);font-size:13px}
+.badge{padding:6px 8px;border-radius:8px;font-size:13px;color:#fff}
+.badge.active{background:var(--success)}
+.badge.waiting{background:var(--warning);color:#111}
+.badge.completed{background:var(--muted)}
+.small{font-size:13px;color:var(--muted)}
+.center{text-align:center}
+.list{list-style:none;padding-left:0}
+.list li{margin:6px 0;padding:8px;border-radius:8px;background:#fbfbff;border:1px solid #f0f0ff;display:flex;justify-content:space-between;align-items:center}
+.footer{margin-top:18px;text-align:center;color:var(--muted);font-size:13px}
+@media (max-width:800px){.grid-3{grid-template-columns:1fr}.form-row{flex-direction:column}}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="title">DriveQ — Smart Lesson Queue (MVP)</div>
+    <div class="tabs">
+      <button class="tab active" data-tab="student">Student</button>
+      <button class="tab" data-tab="instructor">Instructor</button>
+      <button class="tab" data-tab="admin">Admin</button>
+    </div>
+  </div>
+
+  <!-- STUDENT -->
+  <div id="student" class="tab-content">
+    <div class="grid grid-3">
+      <div class="card">
+        <h3>Book from home</h3>
+        <p class="small">See available slots for today and book one — no need to come early or wait in line.</p>
+        <form id="bookingForm">
+          <div class="form-row" style="margin-top:12px">
+            <input id="name" class="input" placeholder="Full name" required />
+            <input id="contact" class="input" placeholder="Email or phone" required />
+          </div>
+          <div style="margin-top:12px">
+            <label class="small">Choose slot</label>
+            <select id="slotSelect" class="input" required>
+              <!-- options populated by JS -->
+            </select>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:12px">
+            <button class="btn" type="submit">Book slot</button>
+            <button type="button" class="btn secondary" onclick="clearStudentForm()">Clear</button>
+          </div>
+        </form>
+        <div id="studentConfirm" style="margin-top:12px"></div>
+      </div>
+
+      <div class="card">
+        <h3>Your bookings</h3>
+        <p class="small">If you booked a slot from home, it appears here (active or waiting).</p>
+        <ul id="myBookings" class="list"></ul>
+      </div>
+
+      <div class="card">
+        <h3>How it works</h3>
+        <ol class="small">
+          <li>Book a slot from home — pick a time that suits you.</li>
+          <li>If instructors are available, your booking becomes <strong>Active</strong>.</li>
+          <li>If full, you’re placed on the <strong>Waiting list</strong> and will be promoted automatically.</li>
+          <li>You receive confirmation in-app (or via SMS in a production build).</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+
+  <!-- INSTRUCTOR -->
+  <div id="instructor" class="tab-content" style="display:none">
+    <div class="card">
+      <div class="flex-between">
+        <div>
+          <h3>Instructor Dashboard</h3>
+          <p class="small">Manage the active session and promote waiting students automatically.</p>
+        </div>
+      </div>
+      <div style="margin-top:12px">
+        <h4>Current student</h4>
+        <div id="current" class="slot center">— no one in session —</div>
+        <div style="margin-top:12px">
+          <button class="btn btn-success" onclick="completeCurrent()">Complete lesson</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid" style="margin-top:12px">
+      <div class="card">
+        <h4>Active queue</h4>
+        <ul id="activeList" class="list"></ul>
+      </div>
+      <div class="card">
+        <h4>Waiting list</h4>
+        <ul id="waitingList" class="list"></ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADMIN -->
+  <div id="admin" class="tab-content" style="display:none">
+    <div class="card">
+      <h3>Admin analytics</h3>
+      <div class="metrics" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-top:12px">
+        <div class="metric-card card center"><h3 id="m-total">0</h3><p class="small">Total bookings (today)</p></div>
+        <div class="metric-card card center"><h3 id="m-active">0</h3><p class="small">Active</p></div>
+        <div class="metric-card card center"><h3 id="m-wait">0</h3><p class="small">Waiting</p></div>
+        <div class="metric-card card center"><h3 id="m-completed">0</h3><p class="small">Completed</p></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <h4>Insights</h4>
+      <p class="small">Peak hours: 2PM - 4PM (example). Use analytics to add slots during peak times.</p>
+    </div>
+  </div>
+
+  <div class="footer small center">Demo MVP — no backend. Production: add persistence, SMS notifications, and authentication.</div>
+</div>
+
+<script>
+// Data and config
+const maxActive = 3; // max concurrent active lessons
+const slots = [
+  { id: '9AM', label: '09:00 AM', capacity: 3, bookings: [] },
+  { id: '11AM', label: '11:00 AM', capacity: 3, bookings: [] },
+  { id: '2PM', label: '02:00 PM', capacity: 3, bookings: [] },
+  { id: '4PM', label: '04:00 PM', capacity: 3, bookings: [] },
+];
+
+let completed = [];
+
+// DOM helpers
+const tabs = document.querySelectorAll('.tab');
+tabs.forEach(t => t.addEventListener('click', () => {
+  tabs.forEach(x=>x.classList.remove('active'));
+  t.classList.add('active');
+  document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+  document.getElementById(t.dataset.tab).style.display = 'block';
+  renderAll();
+}));
+
+function populateSlotSelect(){
+  const sel = document.getElementById('slotSelect');
+  sel.innerHTML = '<option value="">-- Select Slot --</option>';
+  slots.forEach(s => {
+    const taken = s.bookings.length;
+    const label = `${s.label} (${taken}/${s.capacity})`;
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = label;
+    sel.appendChild(opt);
+  });
+}
+
+function renderSlotsList(){
+  // student view bookings list
+  const ul = document.getElementById('myBookings');
+  ul.innerHTML = '';
+  const all = slots.flatMap(s => s.bookings.map(b => ({...b, slotLabel: s.label})));
+  if(all.length===0) { ul.innerHTML = '<li class="center small">No bookings yet</li>'; return; }
+  all.forEach(b => {
+    const li = document.createElement('li');
+    li.innerHTML = `<div>${b.name} — <span class="small">${b.slotLabel}</span></div><div><span class="badge ${b.status}">${b.status}</span></div>`;
+    ul.appendChild(li);
+  });
+}
+
+// booking logic
+function bookSlot(e){
+  e && e.preventDefault();
+  const name = document.getElementById('name').value.trim();
+  const contact = document.getElementById('contact').value.trim();
+  const slotId = document.getElementById('slotSelect').value;
+  if(!name||!contact||!slotId){ alert('Please complete name, contact and slot'); return; }
+  const slot = slots.find(s=>s.id===slotId);
+  const activeCount = slot.bookings.filter(b => b.status==='active').length;
+  const totalActiveOverall = slots.flatMap(s=>s.bookings).filter(b=>b.status==='active').length;
+  // Determine status: if overall active slots < maxActive and slot has space -> active, else waiting
+  let status = 'waiting';
+  if(totalActiveOverall < maxActive && activeCount < slot.capacity){
+    status = 'active';
+  } else {
+    status = 'waiting';
+  }
+  const booking = { id: Date.now().toString(), name, contact, status, timestamp: Date.now() };
+  slot.bookings.push(booking);
+  document.getElementById('studentConfirm').innerHTML = `<div class="small">Booked <strong>${slot.label}</strong> — status: <span class="badge ${status}">${status}</span></div>`;
+  document.getElementById('bookingForm').reset();
+  populateSlotSelect();
+  renderAll();
+}
+
+// Instructor: complete current
+function completeCurrent(){
+  // find current active globally by earliest timestamp
+  const allActive = slots.flatMap(s => s.bookings.map(b => ({...b, slotId: s.id, slotLabel: s.label}))).filter(b=>b.status==='active');
+  if(allActive.length===0){ alert('No active students'); return; }
+  allActive.sort((a,b)=>a.timestamp - b.timestamp);
+  const finished = allActive[0];
+  // mark as completed
+  const slot = slots.find(s=>s.id===finished.slotId);
+  const idx = slot.bookings.findIndex(b=>b.id===finished.id);
+  if(idx!==-1){ slot.bookings[idx].status='completed'; completed.push(slot.bookings[idx]); }
+  // promote first waiting across slots (by timestamp)
+  const allWaiting = slots.flatMap(s=>s.bookings.map(b=>({...b, slotId:s.id, slotLabel:s.label}))).filter(b=>b.status==='waiting');
+  if(allWaiting.length>0){
+    allWaiting.sort((a,b)=>a.timestamp - b.timestamp);
+    const promote = allWaiting[0];
+    const s = slots.find(x=>x.id===promote.slotId);
+    const i = s.bookings.findIndex(z=>z.id===promote.id);
+    if(i!==-1) s.bookings[i].status='active';
+  }
+  populateSlotSelect();
+  renderAll();
+}
+
+function renderInstructor(){
+  // current (earliest active)
+  const allActive = slots.flatMap(s => s.bookings.map(b => ({...b, slotId: s.id, slotLabel: s.label}))).filter(b=>b.status==='active');
+  let currentHTML = '— no one in session —';
+  if(allActive.length>0){
+    allActive.sort((a,b)=>a.timestamp - b.timestamp);
+    currentHTML = `<div class="flex-between"><div><strong>${allActive[0].name}</strong><div class="small">${allActive[0].slotLabel}</div></div><div><span class="badge active">Active</span></div></div>`;
+  }
+  document.getElementById('current').innerHTML = currentHTML;
+  // active list (after current)
+  const nextActives = allActive.slice(1);
+  const activeList = document.getElementById('activeList'); activeList.innerHTML='';
+  if(nextActives.length===0) activeList.innerHTML='<li class="small center">No others active</li>';
+  nextActives.forEach(a=>{
+    const li = document.createElement('li'); li.innerHTML = `<div>${a.name} <div class="small">${a.slotLabel}</div></div><div><span class="badge active">Active</span></div>`; activeList.appendChild(li);
+  });
+  // waiting list
+  const allWaiting = slots.flatMap(s=>s.bookings.map(b=>({...b, slotLabel:s.label}))).filter(b=>b.status==='waiting');
+  const waitingEl = document.getElementById('waitingList'); waitingEl.innerHTML='';
+  if(allWaiting.length===0) waitingEl.innerHTML='<li class="small center">Waiting list empty</li>';
+  allWaiting.sort((a,b)=>a.timestamp - b.timestamp).forEach(w=>{
+    const li = document.createElement('li'); li.innerHTML = `<div>${w.name} <div class="small">${w.slotLabel}</div></div><div><span class="badge waiting">Waiting</span></div>`; waitingEl.appendChild(li);
+  });
+}
+
+function renderAdmin(){
+  const total = slots.flatMap(s=>s.bookings).length;
+  const active = slots.flatMap(s=>s.bookings).filter(b=>b.status==='active').length;
+  const wait = slots.flatMap(s=>s.bookings).filter(b=>b.status==='waiting').length;
+  const comp = completed.length;
+  document.getElementById('m-total').innerText = total;
+  document.getElementById('m-active').innerText = active;
+  document.getElementById('m-wait').innerText = wait;
+  document.getElementById('m-completed').innerText = comp;
+}
+
+function renderAll(){
+  populateSlotSelect();
+  renderSlotsList();
+  renderInstructor();
+  renderAdmin();
+}
+
+// helper to clear form
+function clearStudentForm(){ document.getElementById('bookingForm').reset(); document.getElementById('studentConfirm').innerHTML=''; }
+
+// Initialize with demo data (optional)
+(function seedDemo(){
+  // seed one active booking to show flow
+  const demo = { id: 'demo1', name:'Alice Johnson', contact:'alice@example.com', status:'active', timestamp: Date.now()-1000*60*30 };
+  slots[0].bookings.push(demo);
+  renderAll();
+})();
+
+</script>
+</body>
+</html>
